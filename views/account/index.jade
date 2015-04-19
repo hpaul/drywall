@@ -51,3 +51,23 @@ block body
       div.page-header
         h1 Go Faster Everyday
       i.fa.fa-dashboard.super-awesome
+
+  div.row
+    div.col-sm-12
+      h3 Subscriptions
+      table.table.table-striped
+        thead
+          tr
+            th Name
+            th Description
+            th Language
+        tbody
+          if subscriptions.length > 0
+            each subscribe in subscriptions
+              tr
+                td= subscribe.header.name
+                td= subscribe.header.description
+                td= subscribe.header.language
+          else
+            tr
+              td(colspan=3) No subscriptions

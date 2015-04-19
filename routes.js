@@ -171,6 +171,11 @@ exports = module.exports = function(app, passport) {
   app.get('/account/settings/tumblr/callback/', require('./views/account/settings/index').connectTumblr);
   app.get('/account/settings/tumblr/disconnect/', require('./views/account/settings/index').disconnectTumblr);
 
+  //account > subscription
+  app.get('/account/subscription/', require('./views/account/subscription/index').find);
+  app.get('/account/subscription/:id/', require('./views/account/subscription/index').read);
+  app.put('/account/subscription/:id/', require('./views/account/subscription/index').update);
+
   //route not found
   app.all('*', require('./views/http/index').http404);
 };

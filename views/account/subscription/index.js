@@ -1,0 +1,208 @@
+'use strict';
+var merge = require('array-merger').merge;
+
+exports.find = function(req, res, next){
+  req.query.name = req.query.name ? req.query.name : '';
+  req.query.limit = req.query.limit ? parseInt(req.query.limit, null) : 20;
+  req.query.page = req.query.page ? parseInt(req.query.page, null) : 1;
+  req.query.sort = req.query.sort ? req.query.sort : '_id';
+
+  var filters = {};
+
+  if (req.query.name) {
+    filters.name = new RegExp('^.*?'+ req.query.name +'.*$', 'i');
+  }
+
+  req.app.db.models.Subscription.pagedFind({
+    filters: filters,
+    limit: req.query.limit,
+    page: req.query.page,
+    sort: req.query.sort
+  }, function(err, results) {
+    if (err) {
+      return next(err);
+    }
+
+    if (req.xhr) {
+      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+      results.filters = req.query;
+      res.send(results);
+    }
+    else {
+      results.filters = req.query;
+      results.data = merge(results.data, req.user.roles.account.subscriptions);
+      
+      res.render('account/subscription/index', { data: { results: escape(JSON.stringify(results)) } });
+    }
+  });
+};
+
+exports.read = function(req, res, next){
+  req.app.db.models.Subscription.findById(req.params.id).exec(function(err, subscription) {
+    if (err) {
+      return next(err);
+    }
+
+    if (req.xhr) {
+      res.send(subscription);
+    }
+    else {
+      res.render('admin/subscription/details', { data: { record: escape(JSON.stringify(subscription)) } });
+    }
+  });
+};
+
+exports.update = function(req, res, next){
+  var workflow = req.app.utility.workflow(req, res);
+
+
+  workflow.on('validate', function() {
+    if (!req.body.header) {
+      workflow.outcome.errors.push('Data is required.');
+      return workflow.emit('response');
+    }
+
+    workflow.emit('updateAccount');
+  });
+
+	workflow.on('updateAccount', function() {
+		
+		if(req.body.header.active) {
+			
+			workflow.emit('subscribe');
+
+		} else {
+			var subscriptions = req.user.roles.account.subscriptions;
+
+			subscriptions = subscriptions.filter(function(subscription) {
+				return (subscription.id.toString() !== req.body._id);
+			});
+
+			workflow.outcome.subscriptions = subscriptions;
+			workflow.emit('unsubscribe');
+
+		}
+	});
+
+	workflow.on('subscribe', function() {
+		req.app.db.models.Account.findByIdAndUpdate(req.user.roles.account.id, { $push: { subscriptions: req.body } }, function(err, account) {
+			if (err) {
+				return workflow.emit('exception', err);
+			}
+
+			workflow.outcome.account = account;
+			return workflow.emit('response');
+		});
+	});
+
+	workflow.on('unsubscribe', function() {
+		req.app.db.models.Account.findByIdAndUpdate(req.user.roles.account.id, { subscriptions: workflow.outcome.subscriptions }, function(err, account) {
+			if (err) {
+				return workflow.emit('exception', err);
+			}
+
+			workflow.outcome.account = account;
+			return workflow.emit('response');
+		});
+	});
+
+	workflow.emit('validate');
+};
+
+exports.subscribe = function(req, res, next){
+  var workflow = req.app.utility.workflow(req, res);
+
+  workflow.on('validate', function() {
+    if (!req.user.roles.admin.isMemberOf('root')) {
+      workflow.outcome.errors.push('You may not create categories.');
+      return workflow.emit('response');
+    }
+
+    if (!req.body.pivot) {
+      workflow.outcome.errors.push('A pivot is required.');
+      return workflow.emit('response');
+    }
+
+    if (!req.body.name) {
+      workflow.outcome.errors.push('A name is required.');
+      return workflow.emit('response');
+    }
+
+    workflow.emit('duplicateSubscriptionCheck');
+  });
+
+  workflow.on('duplicateSubscriptionCheck', function() {
+    req.app.db.models.Subscription.findById(req.app.utility.slugify(req.body.pivot +' '+ req.body.name)).exec(function(err, subscription) {
+      if (err) {
+        return workflow.emit('exception', err);
+      }
+
+      if (subscription) {
+        workflow.outcome.errors.push('That subscription+pivot is already taken.');
+        return workflow.emit('response');
+      }
+
+      workflow.emit('createSubscription');
+    });
+  });
+
+  workflow.on('createSubscription', function() {
+    var fieldsToSet = {
+      _id: req.app.utility.slugify(req.body.pivot +' '+ req.body.name),
+      pivot: req.body.pivot,
+      name: req.body.name
+    };
+
+    req.app.db.models.Subscription.create(fieldsToSet, function(err, subscription) {
+      if (err) {
+        return workflow.emit('exception', err);
+      }
+
+      workflow.outcome.record = subscription;
+      return workflow.emit('response');
+    });
+  });
+
+  workflow.emit('validate');
+};
+
+exports.unsubscribe = function(req, res, next){
+  var workflow = req.app.utility.workflow(req, res);
+
+  workflow.on('validate', function() {
+    if (!req.user.roles.admin.isMemberOf('root')) {
+      workflow.outcome.errors.push('You may not update categories.');
+      return workflow.emit('response');
+    }
+
+    if (!req.body.pivot) {
+      workflow.outcome.errfor.pivot = 'pivot';
+      return workflow.emit('response');
+    }
+
+    if (!req.body.name) {
+      workflow.outcome.errfor.name = 'required';
+      return workflow.emit('response');
+    }
+
+    workflow.emit('patchSubscription');
+  });
+
+  workflow.on('patchSubscription', function() {
+    var fieldsToSet = {
+      pivot: req.body.pivot,
+      name: req.body.name
+    };
+
+    req.app.db.models.Subscription.findByIdAndUpdate(req.params.id, fieldsToSet, function(err, subscription) {
+      if (err) {
+        return workflow.emit('exception', err);
+      }
+
+      workflow.outcome.subscription = subscription;
+      return workflow.emit('response');
+    });
+  });
+
+  workflow.emit('validate');
+};
