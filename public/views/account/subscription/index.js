@@ -49,11 +49,7 @@
   app.HeaderView = Backbone.View.extend({
     el: '#header',
     template: _.template( $('#tmpl-header').html() ),
-    events: {
-    },
     initialize: function() {
-      this.model = new app.Record();
-      this.listenTo(this.model, 'change', this.render);
       this.render();
     },
     render: function() {
