@@ -22,15 +22,17 @@ exports.find = function(req, res, next){
     if (err) {
       return next(err);
     }
-
+    
+    results.data = merge(results.data, req.user.roles.account.subscriptions);
+    
     if (req.xhr) {
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       results.filters = req.query;
+
       res.send(results);
     }
     else {
       results.filters = req.query;
-      results.data = merge(results.data, req.user.roles.account.subscriptions);
       
       res.render('account/subscription/index', { data: { results: escape(JSON.stringify(results)) } });
     }

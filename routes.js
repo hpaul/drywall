@@ -135,6 +135,13 @@ exports = module.exports = function(app, passport) {
   app.put('/admin/categories/:id/', require('./views/admin/categories/index').update);
   app.delete('/admin/categories/:id/', require('./views/admin/categories/index').delete);
 
+  //admin > subscriptions
+  app.get('/admin/subscriptions/', require('./views/admin/subscriptions/index').find);
+  app.post('/admin/subscriptions/', require('./views/admin/subscriptions/index').create);
+  app.get('/admin/subscriptions/:id/', require('./views/admin/subscriptions/index').read);
+  app.put('/admin/subscriptions/:id/', require('./views/admin/subscriptions/index').update);
+  app.delete('/admin/subscriptions/:id/', require('./views/admin/subscriptions/index').delete);
+
   //admin > search
   app.get('/admin/search/', require('./views/admin/search/index').find);
 
