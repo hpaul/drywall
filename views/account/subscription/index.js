@@ -1,5 +1,20 @@
 'use strict';
-var merge = require('array-merger').merge;
+var subcribed = function(results, account) {
+
+  return results.map(function(result_subscription) {
+
+    account.forEach(function(account_subscription) {
+      if(result_subscription.id === account_subscription.id) {
+        result_subscription.header.active = 1;
+
+        console.log(account_subscription.header.active);
+      }
+    });
+
+    return result_subscription;
+
+  });
+};
 
 exports.find = function(req, res, next){
   req.query.name = req.query.name ? req.query.name : '';
@@ -23,7 +38,7 @@ exports.find = function(req, res, next){
       return next(err);
     }
     
-    results.data = merge(results.data, req.user.roles.account.subscriptions);
+    results.data = subcribed(results.data, req.user.roles.account.subscriptions);
     
     if (req.xhr) {
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
