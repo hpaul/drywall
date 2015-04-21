@@ -96,6 +96,8 @@ exports.create = function(req, res, next){
   });
 
   workflow.on('createSubscription', function() {
+    req.body.header.active = 0;
+
     var fieldsToSet = {
       header: req.body.header,
 
